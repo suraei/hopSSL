@@ -36,33 +36,34 @@ fi
 
 
 # Main Function
+mkdir -p results
 while read -r host; 
 
 do
 
 	FILE=$(mktemp)
-	mkdir -p results
+	
 
 	echo -e "${PURPLE}[*] Scanning $host"
 	echo -e "${GREEN}[*] Testing Certificate Common Name Mismatch"
 	echo -e "${GREEN}[*] Testing Certificate Expired"
 
-	testssl -q $host > $FILE
-	cat $FILEP | grep -q 'certificate does not match' && echo -e "${RED}[!] Certificate Common Name Mismatch" && echo -e $host >> /results/cert_common_name_mismatch.txt
-	cat $FILEP | grep "Certificate Validity" | grep -q "expired" && echo -e "${RED}[!] Certificate Expired" && echo -e $host >> /results/cert_expired.txt
+	testssl -q $host > $FILE || continue
+	cat $FILE | grep -q 'certificate does not match' && echo -e "${RED}[!] Certificate Common Name Mismatch" && echo -e $host >> results/cert_common_name_mismatch.txt
+	cat $FILE | grep "Certificate Validity" | grep -q "expired" && echo -e "${RED}[!] Certificate Expired" && echo -e $host >> results/cert_expired.txt
 
 	echo -e "${GREEN}[*] Testing Weak Protocols"
 	testssl -p $host > $FILE
-	cat $FILE | grep -v "TLS 1.[2-3]" | grep TLS | grep "TLS 1.1" | grep -q "deprecated" && echo -e "${RED}[!] TLS 1.1 Weak Protocol" && echo -e $host >> /results/weak_protocol_1.1.txt
-	cat $FILE | grep -v "TLS 1.[2-3]" | grep TLS | grep "TLS 1" | grep -q "deprecated" && echo -e "${RED}[!] TLS 1 Weak Protocol" && echo -e $host >> /results/weak_protocol_1.0.txt
+	cat $FILE | grep -v "TLS 1.[2-3]" | grep TLS | grep "TLS 1.1" | grep -q "deprecated" && echo -e "${RED}[!] TLS 1.1 Weak Protocol" && echo -e $host >> results/weak_protocol_1.1.txt
+	cat $FILE | grep -v "TLS 1.[2-3]" | grep TLS | grep "TLS 1" | grep -q "deprecated" && echo -e "${RED}[!] TLS 1 Weak Protocol" && echo -e $host >> results/weak_protocol_1.0.txt
 
 	echo -e "${GREEN}[*] Testing Weak Cipher Suites Supported"
 	testssl -s $host > $FILE
-	cat $FILE | grep -v -w "offered" | grep -q -v "OK" && echo -e "${RED}[!] Weak Cipher Suites Supported" && echo -e $host >> /results/weak_cipher_suites.txt
+	cat $FILE | grep -v -w "offered" | grep -q -v "OK" && echo -e "${RED}[!] Weak Cipher Suites Supported" && echo -e $host >> results/weak_cipher_suites.txt
 
 	echo -e "${GREEN}[*] Testing Missing HTTP Strict Transport Security Policy"
 	testssl -h $host > $FILE
-	cat $FILE | grep "Strict Transport Security" | grep -q "no" && echo -e "${RED}[!] Missing HTTP Strict Transport Security Policy" && echo -e $host >> /results/missing_http_strict_transport.txt
+	cat $FILE | grep "Strict Transport Security" | grep -q "no" && echo -e "${RED}[!] Missing HTTP Strict Transport Security Policy" && echo -e $host >> results/missing_http_strict_transport.txt
 
 
 
