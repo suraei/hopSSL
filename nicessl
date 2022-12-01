@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# Colors
+RED='\033[1;31m'
+GREEN='\033[1;32m'
+PURPLE='\033[1;35m'
+
+# Get the options
+while getopts "ht:" OPTION; do
+   case "$OPTION" in
+      h) # display Help
+         echo -e "Usage: ./nicessl -t <URL>|<list>"
+         exit;;
+      t) # Enter the target
+         TARGET="$OPTARG";;
+     \?) # Invalid option
+         echo -e "[!] Error: Invalid option"
+         exit;;
+   esac
+
+done
+
+# Check Target
+HOSTLIST="$(mktemp)"
+if test -z "${TARGET}"; then
+	echo -e "Specify the target(s) with -t "
+	exit 1
+
+elif test -f "${TARGET}"; then
+	sed -e '/^$/d' -e '/^#/d' "${TARGET}" | sort -u > "${HOSTLIST}"
+
+else
+	echo -e "${TARGET}" > "${HOSTLIST}"
+
+fi
+
+
+# Main Function
+while read -r host; 
+
+do
+
+	FILE=$(mktemp)
+	mkdir -p results
+
+	echo -e "${PURPLE}[*] Scanning $host"
+	echo -e "${GREEN}[*] Testing Certificate Common Name Mismatch"
+	echo -e "${GREEN}[*] Testing Certificate Expired"
+
+	testssl -q $host > $FILE
+	cat $FILEP | grep -q 'certificate does not match' && echo -e "${RED}[!] Certificate Common Name Mismatch" && echo -e $host >> /results/cert_common_name_mismatch.txt
+	cat $FILEP | grep "Certificate Validity" | grep -q "expired" && echo -e "${RED}[!] Certificate Expired" && echo -e $host >> /results/cert_expired.txt
+
+	echo -e "${GREEN}[*] Testing Weak Protocols"
+	testssl -p $host > $FILE
+	cat $FILE | grep -v "TLS 1.[2-3]" | grep TLS | grep "TLS 1.1" | grep -q "deprecated" && echo -e "${RED}[!] TLS 1.1 Weak Protocol" && echo -e $host >> /results/weak_protocol_1.1.txt
+	cat $FILE | grep -v "TLS 1.[2-3]" | grep TLS | grep "TLS 1" | grep -q "deprecated" && echo -e "${RED}[!] TLS 1 Weak Protocol" && echo -e $host >> /results/weak_protocol_1.0.txt
+
+	echo -e "${GREEN}[*] Testing Weak Cipher Suites Supported"
+	testssl -s $host > $FILE
+	cat $FILE | grep -v -w "offered" | grep -q -v "OK" && echo -e "${RED}[!] Weak Cipher Suites Supported" && echo -e $host >> /results/weak_cipher_suites.txt
+
+	echo -e "${GREEN}[*] Testing Missing HTTP Strict Transport Security Policy"
+	testssl -h $host > $FILE
+	cat $FILE | grep "Strict Transport Security" | grep -q "no" && echo -e "${RED}[!] Missing HTTP Strict Transport Security Policy" && echo -e $host >> /results/missing_http_strict_transport.txt
+
+
+
+done < $HOSTLIST
+
