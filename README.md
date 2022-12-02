@@ -29,11 +29,11 @@ Just git clone the repo
 
 Give execution permisions to the script
 
-    sudo chmod +x ./nicessl
+    sudo chmod +x ./hopSSL
 
 And run the script, u can use a URL or a Domain list
 
-    ./nicessl -t <URL>|<list>
+    ./hopSSL -t <URL>|<list>
 
 
 
