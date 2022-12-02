@@ -15,15 +15,11 @@
 - [x] Test Missing HTTP Strict Transport Security Policy
 
 
-## Getting Started
-
-U need to install https://github.com/drwetter/testssl.sh
-
 ### Installing
 
 Just git clone the repo
 
-    sudo git clone https://github.com/suraei/nicessl.git
+    sudo git clone https://github.com/suraei/hopSSL.git
 
 
 Give execution permisions to the script
