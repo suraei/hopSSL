@@ -1,4 +1,4 @@
-# Nice SSL
+# Hop SSL
 
 :memo: Lil SSL/TLS vuln checker
 
