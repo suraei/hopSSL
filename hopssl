@@ -85,7 +85,7 @@ do
     FILE=$(mktemp)
     aux=$(mktemp)
 
-    IP=$(curl --silent "$API/analyze?host=${TARGET}&done=all" | jq '.endpoints[0] .ipAddress' | sed -e 's/^"//' -e 's/"$//')
+    IP=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.endpoints[0] .ipAddress' | sed -e 's/^"//' -e 's/"$//')
 
     
     
@@ -94,15 +94,15 @@ do
     until [ "$STATUS" = '"READY"' ];
 
     do
-        PROGRESS=$(curl --silent "$API/analyze?host=${TARGET}&done=all" | jq '.endpoints[0] .progress' | sed -e 's/^"//' -e 's/"$//')
-        STATUS=$(curl --silent "$API/analyze?host=${TARGET}&done=all" | jq '.status')
+        PROGRESS=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.endpoints[0] .progress' | sed -e 's/^"//' -e 's/"$//')
+        STATUS=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.status')
         if [ ${PROGRESS} != null ]; 
             then echo "[*] Progress: $PROGRESS % "
         fi
         
 
         if [ "${STATUS}" = '"ERROR"' ]; then
-            echo -e "${RED}[!] ERROR: $(curl --silent "$API/analyze?host=${TARGET}&done=all" | jq '.statusMessage')"
+            echo -e "${RED}[!] ERROR: $(curl --silent "$API/analyze?host=${host}&done=all" | jq '.statusMessage')"
             #echo "${RED}[!] Stoping script"
             #exit 1
             break
@@ -114,7 +114,7 @@ do
 
         echo -e "${PURPLE}[*] The url is ready"
 
-        curl --silent "$API/analyze?host=${TARGET}&s=${IP}&done=on&all=on" > FILE
+        curl --silent "$API/analyze?host=${host}&s=${IP}&done=on&all=on" > FILE
 
 
         #Protocols
