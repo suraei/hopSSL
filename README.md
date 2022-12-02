@@ -31,9 +31,13 @@ Give execution permisions to the script
 
     sudo chmod +x ./hopSSL
 
-And run the script, u can use a URL or a Domain list
+And run the script
 
-    ./hopSSL -t <URL>|<list>
+    ./hopSSL -h
+
+![image](https://user-images.githubusercontent.com/25567768/205352166-f30c35ac-00a8-4272-80be-9261ca4fbb21.png)
+
+
 
 
 
