@@ -140,7 +140,8 @@ do
 
         #HTTP
         echo -e "${GREEN}[*] Testing Missing HTTP Strict Transport Security Policy"
-        cat FILE | jq '.endpoints[0].details.hstsPolicy' | grep -qv present && echo -e "${RED}   [!] Missing HTTP Strict Transport Security Policy" && echo -e $host >> results/missing_http_strict_transport.txt
+        cat FILE | jq '.endpoints[0].details.hstsPolicy' | grep -qv present > aux
+        test -z aux && echo -e "${RED}   [!] Missing HTTP Strict Transport Security Policy" && echo -e $host >> results/missing_http_strict_transport.txt
 
         echo -e "${GREEN}[*] Testing HTTP Header Information Disclosure"
         cat FILE | jq '.endpoints[0].details .serverSignature' > aux
