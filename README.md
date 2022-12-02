@@ -1,10 +1,7 @@
-# HopSSL
+# 🐰 HopSSL
 
 :memo: Lil SSL/TLS vuln checker
 
-- [x] Test Certificate Common Name Mismatch
-
-- [x] Test Certificate Expired
 
 - [x] Test TLS 1.1 Weak Protocol
 
@@ -12,7 +9,15 @@
 
 - [x] Test Weak Cipher Suites Supported
 
+- [x] Test Forward Secrecy
+
+- [x] Test Certificate Common Name Mismatch
+
+- [x] Test Certificate Revoked
+
 - [x] Test Missing HTTP Strict Transport Security Policy
+
+- [x] Test Missing HTTP Header Information Disclosure
 
 
 ### Installing
