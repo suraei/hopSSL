@@ -59,7 +59,7 @@ do
 
 	echo -e "${GREEN}[*] Testing Weak Cipher Suites Supported"
 	testssl -s $host > $FILE
-	cat $FILE | grep -v -w "offered" | grep -q -v "OK" && echo -e "${RED}[!] Weak Cipher Suites Supported" && echo -e $host >> results/weak_cipher_suites.txt
+	cat $FILE | grep -v "OK" | grep -v "not" | grep "offered" && echo -e "${RED}[!] Weak Cipher Suites Supported" && echo -e $host >> results/weak_cipher_suites.txt
 
 	echo -e "${GREEN}[*] Testing Missing HTTP Strict Transport Security Policy"
 	testssl -h $host > $FILE
