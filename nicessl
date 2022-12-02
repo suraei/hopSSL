@@ -5,6 +5,9 @@ RED='\033[1;31m'
 GREEN='\033[1;32m'
 PURPLE='\033[1;35m'
 
+# API
+API='https://api.ssllabs.com/api/v3'
+
 # Get the options
 while getopts "ht:" OPTION; do
    case "$OPTION" in
@@ -23,14 +26,14 @@ done
 # Check Target
 HOSTLIST="$(mktemp)"
 if test -z "${TARGET}"; then
-	echo -e "Specify the target(s) with -t "
-	exit 1
+  echo -e "Specify the target(s) with -t "
+  exit 1
 
 elif test -f "${TARGET}"; then
-	sed -e '/^$/d' -e '/^#/d' "${TARGET}" | sort -u > "${HOSTLIST}"
+  sed -e '/^$/d' -e '/^#/d' "${TARGET}" | sort -u > "${HOSTLIST}"
 
 else
-	echo -e "${TARGET}" > "${HOSTLIST}"
+  echo -e "${TARGET}" > "${HOSTLIST}"
 
 fi
 
@@ -40,32 +43,70 @@ mkdir -p results
 while read -r host; 
 
 do
+    FILE=$(mktemp)
+    aux=$(mktemp)
 
-	FILE=$(mktemp)
-	
+    IP=$(curl --silent "$API/analyze?host=${TARGET}&done=all" | jq '.endpoints[0] .ipAddress' | sed -e 's/^"//' -e 's/"$//')
 
-	echo -e "${PURPLE}[*] Scanning $host"
-	echo -e "${GREEN}[*] Testing Certificate Common Name Mismatch"
-	echo -e "${GREEN}[*] Testing Certificate Expired"
+    echo "------------------------------------------------------------------------"
+    
+    echo -e "${PURPLE}[*] Scanning $host"
 
-	testssl -q $host > $FILE || continue
-	cat $FILE | grep -q 'certificate does not match' && echo -e "${RED}[!] Certificate Common Name Mismatch" && echo -e $host >> results/cert_common_name_mismatch.txt
-	cat $FILE | grep "Certificate Validity" | grep -q "expired" && echo -e "${RED}[!] Certificate Expired" && echo -e $host >> results/cert_expired.txt
+    until [ "$STATUS" = '"READY"' ];
 
-	echo -e "${GREEN}[*] Testing Weak Protocols"
-	testssl -p $host > $FILE
-	cat $FILE | grep -v "TLS 1.[2-3]" | grep TLS | grep "TLS 1.1" | grep -q "deprecated" && echo -e "${RED}[!] TLS 1.1 Weak Protocol" && echo -e $host >> results/weak_protocol_1.1.txt
-	cat $FILE | grep -v "TLS 1.[2-3]" | grep TLS | grep "TLS 1" | grep -q "deprecated" && echo -e "${RED}[!] TLS 1 Weak Protocol" && echo -e $host >> results/weak_protocol_1.0.txt
+    do
+        PROGRESS=$(curl --silent "$API/analyze?host=${TARGET}&done=all" | jq '.endpoints[0] .progress' | sed -e 's/^"//' -e 's/"$//')
+        STATUS=$(curl --silent "$API/analyze?host=${TARGET}&done=all" | jq '.status')
+        [ -z "$PROGRESS" ] && echo "[*] Progress: $PROGRESS % "
+        
 
-	echo -e "${GREEN}[*] Testing Weak Cipher Suites Supported"
-	testssl -s $host > $FILE
-	cat $FILE | grep -v "OK" | grep -v "not" | grep "offered" && echo -e "${RED}[!] Weak Cipher Suites Supported" && echo -e $host >> results/weak_cipher_suites.txt
+        if [ "${STATUS}" = '"ERROR"' ]; then
+            echo "${RED}[!] ERROR: $(curl --silent "$API/analyze?host=${TARGET}&done=all" | jq '.statusMessage')"
+            echo "${RED}[!] Stoping script"
+            exit 1
+        fi   
 
-	echo -e "${GREEN}[*] Testing Missing HTTP Strict Transport Security Policy"
-	testssl -h $host > $FILE
-	cat $FILE | grep "Strict Transport Security" | grep -q "no" && echo -e "${RED}[!] Missing HTTP Strict Transport Security Policy" && echo -e $host >> results/missing_http_strict_transport.txt
+    done
+
+    echo "[*] The url is ready"
+
+    curl --silent "$API/analyze?host=${TARGET}&s=${IP}&done=on&all=on" > FILE
+
+
+    #Protocols
+    echo -e "${GREEN}[*] Testing Weak Protocols"
+    cat FILE | jq '.endpoints[0].details .protocols[].version' | grep -q "1.1" && echo -e "${RED}[!] TLS 1.0 Weak Protocol" && echo -e $host >> results/weak_protocol_1.0.txt
+    cat FILE | jq '.endpoints[0].details .protocols[].version' | grep -q "1.1" && echo -e "${RED}[!] TLS 1.1 Weak Protocol" && echo -e $host >> results/weak_protocol_1.1.txt
+
+    #Ciphers
+    echo -e "${GREEN}[*] Testing Weak Cipher Suites Supported"
+    [ -z $(cat FILE | jq '.endpoints[0].details .suites[]' | grep "q") ] && echo -e "${RED}[!] Weak Cipher Suites Supported" && echo -e $host >> results/weak_cipher_suites.txt
+
+    echo -e "${GREEN}[*] Testing Forward Secrecy"
+    [ -z $( cat FILE | jq '.endpoints[0].details .forwardSecrecy') ] && echo -e "${RED}[!] Weak Cipher Suites Supported" && echo -e $host >> results/no_forward_secrecy.txt
+
+    #CertificateChain
+    echo -e "${GREEN}[*] Testing Certificate Common Name Mismatch"
+    cat FILE | grep "issues" | grep -q "8" && echo -e "${RED}[!] Certificate Common Name Mismatch" && echo -e $host >> results/cert_common_name_mismatch.txt
+
+    echo -e "${GREEN}[*] Testing Certificate Revoked"
+    cat FILE | grep "issues" | grep -q "16" && echo -e "${RED}[!] Certificate Revoked" && echo -e $host >> results/cert_revoked.txt
+
+    #HTTP
+    echo -e "${GREEN}[*] Testing Missing HTTP Strict Transport Security Policy"
+    cat FILE | jq '.endpoints[0].details.hstsPolicy' | grep -qv present && echo -e "${RED}[!] Missing HTTP Strict Transport Security Policy" && echo -e $host >> results/missing_http_strict_transport.txt
+
+    echo -e "${GREEN}[*] Testing HTTP Header Information Disclosure"
+    cat FILE | jq '.endpoints[0].details .serverSignature' >> aux
+    test -z aux && echo -e "${RED}[!] HTTP Header Information Disclosure" && echo -e $host >> results/header_information_disclosure.txt
+
+    echo "------------------------------------------------------------------------"
+    
+        
+    
 
 
 
 done < $HOSTLIST
+
 
