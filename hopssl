@@ -115,37 +115,51 @@ do
         echo -e "${PURPLE}[*] The url is ready"
 
         curl --silent "$API/analyze?host=${host}&s=${IP}&done=on&all=on" > FILE
+        echo "${host}-------------------------------" >> jsontest
+        curl --silent "$API/analyze?host=${host}&s=${IP}&done=on&all=on" >> jsontest
+
+        #Connection test
+        CONN=$(cat FILE | jq '.endpoints[0].statusMessage')
+
+        if [ CONN = '"Unable to connect to the server"' ]; then
 
 
-        #Protocols
-        echo -e "${GREEN}[*] Testing Weak Protocols"
-        cat FILE | jq '.endpoints[0].details .protocols[].version' | grep -q "1.1" && echo -e "${RED}   [!] TLS 1.0 Weak Protocol" && echo -e $host >> results/weak_protocol_1.0.txt
-        cat FILE | jq '.endpoints[0].details .protocols[].version' | grep -q "1.1" && echo -e "${RED}   [!] TLS 1.1 Weak Protocol" && echo -e $host >> results/weak_protocol_1.1.txt
+            #Protocols
+            echo -e "${GREEN}[*] Testing Weak Protocols"
+            cat FILE | jq '.endpoints[0].details .protocols[].version' | grep -q "1.0" && echo -e "${RED}   [!] TLS 1.0 Weak Protocol" && echo -e $host >> results/weak_protocol_1.0.txt
+            cat FILE | jq '.endpoints[0].details .protocols[].version' | grep -q "1.1" && echo -e "${RED}   [!] TLS 1.1 Weak Protocol" && echo -e $host >> results/weak_protocol_1.1.txt
 
-        #Ciphers
-        echo -e "${GREEN}[*] Testing Weak Cipher Suites Supported"
-        cat FILE | jq '.endpoints[0].details .suites[]' 2>/dev/null | grep "q"  > aux
-        test -z aux && echo -e "${RED}   [!] Weak Cipher Suites Supported" && echo -e $host >> results/weak_cipher_suites.txt
+            #Ciphers
+            echo -e "${GREEN}[*] Testing Weak Cipher Suites Supported"
+            cat FILE | jq '.endpoints[0].details .suites[].list[].q' | grep -q "1\|0" && echo -e "${RED}   [!] Weak Cipher Suites Supported" && echo -e $host >> results/weak_cipher_suites.txt
 
-        echo -e "${GREEN}[*] Testing Forward Secrecy"
-        cat FILE | jq '.endpoints[0].details .forwardSecrecy' > aux
-        test -z aux && echo -e "${RED}   [!] No Forward Secrecy" && echo -e $host >> results/no_forward_secrecy.txt
+            echo -e "${GREEN}[*] Testing Forward Secrecy"
+            cat FILE | jq '.endpoints[0].details .forwardSecrecy' > aux
+            test -z aux && echo -e "${RED}   [!] No Forward Secrecy" && echo -e $host >> results/no_forward_secrecy.txt
 
-        #CertificateChain
-        echo -e "${GREEN}[*] Testing Certificate Common Name Mismatch"
-        cat FILE | grep "issues" | grep -q "8" && echo -e "${RED}   [!] Certificate Common Name Mismatch" && echo -e $host >> results/cert_common_name_mismatch.txt
+            #CertificateChain 
+            echo -e "${GREEN}[*] Testing Certificate Common Name Mismatch"
+            cat FILE | jq '.certs[].issues' | grep -q "8" && echo -e "${RED}   [!] Certificate Common Name Mismatch" && echo -e $host >> results/cert_common_name_mismatch.txt
 
-        echo -e "${GREEN}[*] Testing Certificate Revoked"
-        cat FILE | grep "issues" | grep -q "16" && echo -e "${RED}   [!] Certificate Revoked" && echo -e $host >> results/cert_revoked.txt
+            echo -e "${GREEN}[*] Testing Certificate Revoked"
+            cat FILE | jq '.certs[].issues' | grep -q "16" && echo -e "${RED}   [!] Certificate Revoked" && echo -e $host >> results/cert_revoked.txt
 
-        #HTTP
-        echo -e "${GREEN}[*] Testing Missing HTTP Strict Transport Security Policy"
-        cat FILE | jq '.endpoints[0].details.hstsPolicy' | grep -qv present > aux
-        test -z aux && echo -e "${RED}   [!] Missing HTTP Strict Transport Security Policy" && echo -e $host >> results/missing_http_strict_transport.txt
+            #HTTP
+            echo -e "${GREEN}[*] Testing Missing HTTP Strict Transport Security Policy"
+            cat FILE | jq '.endpoints[0].details.hstsPolicy .status' | grep -q "absent"  && echo -e "${RED}   [!] Missing HTTP Strict Transport Security Policy" && echo -e $host >> results/missing_http_strict_transport.txt
 
-        echo -e "${GREEN}[*] Testing HTTP Header Information Disclosure"
-        cat FILE | jq '.endpoints[0].details .serverSignature' > aux
-        test -z aux && echo -e "${RED}  [!] HTTP Header Information Disclosure" && echo -e $host >> results/header_information_disclosure.txt
+            echo -e "${GREEN}[*] Testing HTTP Header Information Disclosure"
+            cat FILE | jq '.endpoints[0].details .serverSignature' > aux
+            test -z aux && echo -e "${RED}  [!] HTTP Header Information Disclosure" && echo -e $host >> results/header_information_disclosure.txt
+        
+        else
+           
+            echo -e "${RED}[!] Unable to connect to the server"
+
+        fi
+
+
+
 
     fi
 
@@ -158,6 +172,8 @@ do
 
 done < $HOSTLIST
 
-rm aux FILE
+
+
+
 
 
