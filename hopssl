@@ -119,10 +119,9 @@ do
         curl --silent "$API/analyze?host=${host}&s=${IP}&done=on&all=on" >> jsontest
 
         #Connection test
-        CONN=$(cat FILE | jq '.endpoints[0].statusMessage')
+        cat FILE | jq '.endpoints[0].statusMessage' > aux  
 
-        if [ CONN = '"Unable to connect to the server"' ]; then
-
+        if grep -q "Ready" aux; then
 
             #Protocols
             echo -e "${GREEN}[*] Testing Weak Protocols"
@@ -151,10 +150,13 @@ do
             echo -e "${GREEN}[*] Testing HTTP Header Information Disclosure"
             cat FILE | jq '.endpoints[0].details .serverSignature' > aux
             test -z aux && echo -e "${RED}  [!] HTTP Header Information Disclosure" && echo -e $host >> results/header_information_disclosure.txt
-        
+
+            
+            
         else
-           
-            echo -e "${RED}[!] Unable to connect to the server"
+
+            echo -e "${RED}[!] Failed Connection"
+            
 
         fi
 
