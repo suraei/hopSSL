@@ -84,10 +84,8 @@ while read -r host;
 do
     FILE=$(mktemp)
     aux=$(mktemp)
-
-    IP=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.endpoints[0] .ipAddress' | sed -e 's/^"//' -e 's/"$//')
-
     
+    IP=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.endpoints[0] .ipAddress' | sed -e 's/^"//' -e 's/"$//')
     
     echo -e "${PURPLE}[*] Scanning ${YELLOW}$host"
 
@@ -97,7 +95,7 @@ do
         PROGRESS=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.endpoints[0] .progress' | sed -e 's/^"//' -e 's/"$//')
         STATUS=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.status')
         if [ ${PROGRESS} != null ]; 
-            then echo "[*] Progress: $PROGRESS % "
+            then echo -en "\r\033[K${PURPLE}[*] Progress: ${YELLOW}$PROGRESS ${PURPLE}%"
         fi
         
 
@@ -112,7 +110,7 @@ do
 
     if [ "${STATUS}" = '"READY"' ]; then
 
-        echo -e "${PURPLE}[*] The url is ready"
+        echo -e "\n${PURPLE}[*] The url is ready"
 
         curl --silent "$API/analyze?host=${host}&s=${IP}&done=on&all=on" > FILE
         echo "${host}-------------------------------" >> jsontest
@@ -149,32 +147,25 @@ do
 
             echo -e "${GREEN}[*] Testing HTTP Header Information Disclosure"
             cat FILE | jq '.endpoints[0].details .serverSignature' > aux
-            test -z aux && echo -e "${RED}  [!] HTTP Header Information Disclosure" && echo -e $host >> results/header_information_disclosure.txt
-
-            
+            test -z aux && echo -e "${RED}  [!] HTTP Header Information Disclosure" && echo -e $host >> results/header_information_disclosure.txt           
             
         else
 
-            echo -e "${RED}[!] Failed Connection"
+            echo -e "${RED}[!] Connection error"
             
 
         fi
 
 
-
-
     fi
 
-    echo -e "------------------------------------------------------------------------------------------"
-    
-        
-    
 
+    echo -e "------------------------------------------------------------------------------------------"
 
 
 done < $HOSTLIST
 
-
+[ -f FILE ] && rm FILE aux 
 
 
 
