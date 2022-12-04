@@ -199,9 +199,9 @@ if dpkg -l jq | grep -q "ii" ; then
 else
 
     echo -e "${RED} [!]You need to install 'jq' package to be able to use hopSSL, do you want to proceed with the installation? (y/n)"
-    read $opt
+    read opt
     case $opt in
-        "y")
+        y|Y)
             echo -e "${GREEN}[*] Installing 'jq' package"
             sudo apt install jq -y
         ;;
