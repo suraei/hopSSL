@@ -41,131 +41,176 @@ echo -e "${PURPLE}⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢯⠙⠛⠒⠖⠚⠛�
 echo -e "${PURPLE}⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠾⠋⠀⠀"
 echo -e "${PURPLE}⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⣻⣦⠀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⡶⣿⠀⢀⣉⡏⠀⠀⠀"⠀⠀
 echo -e "${PURPLE}⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠙⠛⠛⠚⠉⠉⠙⠛⠛⠛⠛⠛⠓⠚⠛⠋⠙⠓⠛⠒⠓⠋⠀⠀  ${PURPLE}https://github.com/suraei/hopSSL\n"
-echo -e "${PURPLE}------------------------------------------------------------------------------------------"
+echo -e "${PURPLE}--------------------------------------------------------------------------------"
 
 
+if dpkg -l jq | grep -q "ii" ; then
 
 
-# Get the options
-while getopts "ht:" OPTION; do
-   case "$OPTION" in
-      h) # display Help
-         echo -e "${GREEN}Usage: ./hopssl -t <URL>|<list>"
-         exit;;
-      t) # Enter the target
-         TARGET="$OPTARG";;
-     \?) # Invalid option
-         echo -e "[!] Error: Invalid option"
-         exit;;
-   esac
-
-done
-
-# Check Target
-HOSTLIST="$(mktemp)"
-if test -z "${TARGET}"; then
-  echo -e "${GREEN}Specify the target(s) with -t "
-  exit 1
-
-elif test -f "${TARGET}"; then
-  sed -e '/^$/d' -e '/^#/d' "${TARGET}" | sort -u > "${HOSTLIST}"
-
-else
-  echo -e "${TARGET}" > "${HOSTLIST}"
-
-fi
-
-
-
-# Main Function
-mkdir -p results
-while read -r host; 
-
-do
-    FILE=$(mktemp)
-    aux=$(mktemp)
-    
-    IP=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.endpoints[0] .ipAddress' | sed -e 's/^"//' -e 's/"$//')
-    
-    echo -e "${PURPLE}[*] Scanning ${YELLOW}$host"
-
-    until [ "$STATUS" = '"READY"' ];
-
-    do
-        PROGRESS=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.endpoints[0] .progress' | sed -e 's/^"//' -e 's/"$//')
-        STATUS=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.status')
-        if [ ${PROGRESS} != null ]; 
-            then echo -en "\r\033[K${PURPLE}[*] Progress: ${YELLOW}$PROGRESS ${PURPLE}%"
-        fi
-        
-
-        if [ "${STATUS}" = '"ERROR"' ]; then
-            echo -e "${RED}[!] ERROR: $(curl --silent "$API/analyze?host=${host}&done=all" | jq '.statusMessage')"
-            #echo "${RED}[!] Stoping script"
-            #exit 1
-            break
-        fi   
+    # Get the options
+    while getopts "ht:" OPTION; do
+       case "$OPTION" in
+          h) # display Help
+             echo -e "${GREEN}Usage: ./hopssl -t <URL>|<list>"
+             exit;;
+          t) # Enter the target
+             TARGET="$OPTARG";;
+         \?) # Invalid option
+             echo -e "[!] Error: Invalid option"
+             exit;;
+       esac
 
     done
 
-    if [ "${STATUS}" = '"READY"' ]; then
+    # Check Target
+    HOSTLIST="$(mktemp)"
+    if test -z "${TARGET}"; then
+      echo -e "${GREEN}Specify the target(s) with -t "
+      exit 1
 
-        echo -e "\n${PURPLE}[*] The url is ready"
+    elif test -f "${TARGET}"; then
+      sed -e '/^$/d' -e '/^#/d' "${TARGET}" | sort -u > "${HOSTLIST}"
 
-        curl --silent "$API/analyze?host=${host}&s=${IP}&done=on&all=on" > FILE
-        echo "${host}-------------------------------" >> jsontest
-        curl --silent "$API/analyze?host=${host}&s=${IP}&done=on&all=on" >> jsontest
-
-        #Connection test
-        cat FILE | jq '.endpoints[0].statusMessage' > aux  
-
-        if grep -q "Ready" aux; then
-
-            #Protocols
-            echo -e "${GREEN}[*] Testing Weak Protocols"
-            cat FILE | jq '.endpoints[0].details .protocols[].version' | grep -q "1.0" && echo -e "${RED}   [!] TLS 1.0 Weak Protocol" && echo -e $host >> results/weak_protocol_1.0.txt
-            cat FILE | jq '.endpoints[0].details .protocols[].version' | grep -q "1.1" && echo -e "${RED}   [!] TLS 1.1 Weak Protocol" && echo -e $host >> results/weak_protocol_1.1.txt
-
-            #Ciphers
-            echo -e "${GREEN}[*] Testing Weak Cipher Suites Supported"
-            cat FILE | jq '.endpoints[0].details .suites[].list[].q' | grep -q "1\|0" && echo -e "${RED}   [!] Weak Cipher Suites Supported" && echo -e $host >> results/weak_cipher_suites.txt
-
-            echo -e "${GREEN}[*] Testing Forward Secrecy"
-            cat FILE | jq '.endpoints[0].details .forwardSecrecy' > aux
-            test -z aux && echo -e "${RED}   [!] No Forward Secrecy" && echo -e $host >> results/no_forward_secrecy.txt
-
-            #CertificateChain 
-            echo -e "${GREEN}[*] Testing Certificate Common Name Mismatch"
-            cat FILE | jq '.certs[].issues' | grep -q "8" && echo -e "${RED}   [!] Certificate Common Name Mismatch" && echo -e $host >> results/cert_common_name_mismatch.txt
-
-            echo -e "${GREEN}[*] Testing Certificate Revoked"
-            cat FILE | jq '.certs[].issues' | grep -q "16" && echo -e "${RED}   [!] Certificate Revoked" && echo -e $host >> results/cert_revoked.txt
-
-            #HTTP
-            echo -e "${GREEN}[*] Testing Missing HTTP Strict Transport Security Policy"
-            cat FILE | jq '.endpoints[0].details.hstsPolicy .status' | grep -q "absent"  && echo -e "${RED}   [!] Missing HTTP Strict Transport Security Policy" && echo -e $host >> results/missing_http_strict_transport.txt
-
-            echo -e "${GREEN}[*] Testing HTTP Header Information Disclosure"
-            cat FILE | jq '.endpoints[0].details .serverSignature' > aux
-            test -z aux && echo -e "${RED}  [!] HTTP Header Information Disclosure" && echo -e $host >> results/header_information_disclosure.txt           
-            
-        else
-
-            echo -e "${RED}[!] Connection error"
-            
-
-        fi
-
+    else
+      echo -e "${TARGET}" > "${HOSTLIST}"
 
     fi
 
 
-    echo -e "------------------------------------------------------------------------------------------"
+
+    # Main Function
+    mkdir -p results
+    while read -r host; 
+
+    do
+        FILE=$(mktemp)
+        aux=$(mktemp)
+        
+        IP=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.endpoints[0] .ipAddress' | sed -e 's/^"//' -e 's/"$//')
+        
+        echo -e "${PURPLE}[*] Scanning ${YELLOW}$host"
+
+        until [ "$STATUS" = '"READY"' ];
+
+        do
+            PROGRESS=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.endpoints[0] .progress' | sed -e 's/^"//' -e 's/"$//')
+            STATUS=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.status')
+            if [ ${PROGRESS} != null ]; 
+                then echo -en "\r\033[K${PURPLE}[*] Progress: ${YELLOW}$PROGRESS ${PURPLE}%"
+            fi
+            
+
+            if [ "${STATUS}" = '"ERROR"' ]; then
+                echo -e "${RED}[!] ERROR: $(curl --silent "$API/analyze?host=${host}&done=all" | jq '.statusMessage')"
+                #echo "${RED}[!] Stoping script"
+                #exit 1
+                break
+            fi   
+
+        done
+
+        if [ "${STATUS}" = '"READY"' ]; then
+
+            echo -e "\n${PURPLE}[*] The url is ready"
+
+            curl --silent "$API/analyze?host=${host}&s=${IP}&done=on&all=on" > FILE
+            echo "${host}-------------------------------" >> jsontest
+            curl --silent "$API/analyze?host=${host}&s=${IP}&done=on&all=on" >> jsontest
+
+            #Connection test
+            cat FILE | jq '.endpoints[0].statusMessage' > aux  
+
+            if grep -q "Ready" aux; then
+
+                #Protocols
+                echo -e "${GREEN}[*] Testing Weak Protocols"
+                cat FILE | jq '.endpoints[0].details .protocols[].version' | grep -q "1.0" && echo -e "${RED}   [!] TLS 1.0 Weak Protocol" && echo -e $host >> results/weak_protocol_1.0.txt
+                cat FILE | jq '.endpoints[0].details .protocols[].version' | grep -q "1.1" && echo -e "${RED}   [!] TLS 1.1 Weak Protocol" && echo -e $host >> results/weak_protocol_1.1.txt
+
+                #Ciphers
+                echo -e "${GREEN}[*] Testing Weak Cipher Suites Supported"
+                cat FILE | jq '.endpoints[0].details .suites[].list[].q' | grep -q "1\|0" && echo -e "${RED}   [!] Weak Cipher Suites Supported" && echo -e $host >> results/weak_cipher_suites.txt
+
+                echo -e "${GREEN}[*] Testing Forward Secrecy"
+                cat FILE | jq '.endpoints[0].details .forwardSecrecy' > aux
+                test -z aux && echo -e "${RED}   [!] No Forward Secrecy" && echo -e $host >> results/no_forward_secrecy.txt
+
+                #CertificateChain 
+                echo -e "${GREEN}[*] Testing Certificate Common Name Mismatch"
+                cat FILE | jq '.certs[].issues' | grep -q "8" && echo -e "${RED}   [!] Certificate Common Name Mismatch" && echo -e $host >> results/cert_common_name_mismatch.txt
+
+                echo -e "${GREEN}[*] Testing Certificate Revoked"
+                cat FILE | jq '.certs[].issues' | grep -q "16" && echo -e "${RED}   [!] Certificate Revoked" && echo -e $host >> results/cert_revoked.txt
+
+                #HTTP
+                echo -e "${GREEN}[*] Testing Missing HTTP Strict Transport Security Policy"
+                cat FILE | jq '.endpoints[0].details.hstsPolicy .status' | grep -q "absent"  && echo -e "${RED}   [!] Missing HTTP Strict Transport Security Policy" && echo -e $host >> results/missing_http_strict_transport.txt
+
+                echo -e "${GREEN}[*] Testing HTTP Header Information Disclosure"
+                cat FILE | jq '.endpoints[0].details .serverSignature' > aux
+                test -z aux && echo -e "${RED}  [!] HTTP Header Information Disclosure" && echo -e $host >> results/header_information_disclosure.txt
+
+                #VULNS
+                echo -e "${GREEN}[*] Testing Attacks"
+
+                cat FILE | jq '.endpoints[0].details .heartbleed' | grep -q "true" && echo -e "${RED}   [!] Vulnerable to Heartbleed (CVE-2014-0160)" && echo -e $host >> results/heartbleed_CVE-2014-0160.txt
+
+                cat FILE | jq '.endpoints[0].details .vulnBeast' | grep -q "true" && echo -e "${RED}   [!] Vulnerable to BEAST (CVE-2011-3389)" && echo -e $host >> results/BEAST_CVE-2011-3389.txt
+
+                cat FILE | jq '.endpoints[0].details .openSslCcs' | grep -q "3" && echo -e "${RED}   [!] Vulnerable to OpenSSL CCS Injection (CVE-2014-0224)" && echo -e $host >> results/opensslcss_CVE-2014-0224.txt
+
+                cat FILE | jq '.endpoints[0].details .openSSLLuckyMinus20' | grep -q "2" && echo -e "${RED}   [!] Vulnerable to OpenSSL Lucky minus 20 (CVE-2016-2107)" && echo -e $host >> results/opensslluckyminus20_CVE-2016-2107.txt
+
+                cat FILE | jq '.endpoints[0].details .ticketbleed' | grep -q "2" && echo -e "${RED}   [!] Vulnerable to Tickedbleed (CVE-2016-9244)" && echo -e $host >> results/tickedbleed_CVE-2016-9244.txt
+                
+                cat FILE | jq '.endpoints[0].details .bleichenbacher' | grep -q "2\|3" && echo -e "${RED}   [!] Vulnerable to ROBOT (CVE-2017-13099)" && echo -e $host >> results/ROBOT_CVE-2017-13099.txt
+                
+                cat FILE | jq '.endpoints[0].details .zombiePoodle' | grep -q "2\|3" && echo -e "${RED}   [!] Vulnerable to Zombie POODLE (CVE-2019-6593)" && echo -e $host >> results/zombie_poodle_CVE-2019-6593.txt
+
+                cat FILE | jq '.endpoints[0].details .goldenDoodle' | grep -q "4\|5" && echo -e "${RED}   [!] Vulnerable to GOLDENDOODLE (CVE-2019-5592)" && echo -e $host >> results/goldendoodle_CVE-2019-5592.txt
+
+                cat FILE | jq '.endpoints[0].details .zeroLengthPaddingOracle' | grep -q "10\|11" && echo -e "${RED}   [!] Vulnerable to 0-Length Padding Oracle (CVE-2019-1559)" && echo -e $host >> results/0_Length_Padding_Oracle_CVE-2019-1559.txt
+
+                cat FILE | jq '.endpoints[0].details .poodle' | grep -q "true" && echo -e "${RED}   [!] Vulnerable to POODLE (CVE-2014-3566)" && echo -e $host >> results/POODLE_CVE-2014-3566.txt
+
+                cat FILE | jq '.endpoints[0].details .freak' | grep -q "true" && echo -e "${RED}   [!] Vulnerable to FREAK (CVE-2015-0204)" && echo -e $host >> results/FREAK_CVE-2015-0204.txt
 
 
-done < $HOSTLIST
 
-[ -f FILE ] && rm FILE aux 
+
+            else
+
+                echo -e "${RED}[!] Connection error"
+                
+
+            fi
+
+
+        fi
+
+
+        echo -e "--------------------------------------------------------------------------------"
+
+
+    done < $HOSTLIST
+
+    [ -f FILE ] && rm FILE aux
+
+else
+
+    echo -e "${RED} [!]You need to install 'jq' package to be able to use hopSSL, do you want to proceed with the installation? (y/n)"
+    read $opt
+    case $opt in
+        "y")
+            echo -e "${GREEN}[*] Installing 'jq' package"
+            sudo apt install jq -y
+        ;;
+        *)
+            echo -e "${RED} [!] Leaving hopSSL "
+        ;;
+    esac
+
+fi
 
 
 
