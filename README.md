@@ -45,14 +45,23 @@ And run the script
 - [x] Different attacks:
     
     - [x] Heartbleed
+    
     - [x] BEAST
+    
     - [x] OpenSSL CSS Injection
+    
     - [x] Tickedbleed
+    
     - [x] ROBOT
+    
     - [x] POODLE
+    
     - [x] Zombie POODLE
+    
     - [x] GOLDENDOODLE
+    
     - [x] 0-Length Padding Oracle
+    
     - [x] FREAK
 
 
