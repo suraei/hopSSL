@@ -114,8 +114,8 @@ if dpkg -l jq | grep -q "ii" ; then
             echo -e "\n${PURPLE}[*] The url is ready"
 
             curl --silent "$API/analyze?host=${host}&s=${IP}&done=on&all=on" > FILE
-            echo "${host}-------------------------------" >> jsontest
-            curl --silent "$API/analyze?host=${host}&s=${IP}&done=on&all=on" >> jsontest
+            #echo "${host}-------------------------------" >> jsontest
+            #curl --silent "$API/analyze?host=${host}&s=${IP}&done=on&all=on" >> jsontest
 
             #Connection test
             cat FILE | jq '.endpoints[0].statusMessage' > aux  
