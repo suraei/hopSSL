@@ -3,7 +3,8 @@
 :fast_forward: HopSSL is a tool to quickly obtain TLS/SSL-related vulnerabilities info from a domain or a domainlist.
 
 
-![image](https://user-images.githubusercontent.com/25567768/205352166-f30c35ac-00a8-4272-80be-9261ca4fbb21.png)
+![image](https://user-images.githubusercontent.com/25567768/205468480-75571291-eeb5-4e5d-981b-50db59f5ff09.png)
+
 
 
 ### Installing
