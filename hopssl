@@ -95,7 +95,7 @@ if dpkg -l jq | grep -q "ii" ; then
         do
             PROGRESS=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.endpoints[0] .progress' | sed -e 's/^"//' -e 's/"$//')
             STATUS=$(curl --silent "$API/analyze?host=${host}&done=all" | jq '.status')
-            if [ ${PROGRESS} != null ]; 
+            if [ "${PROGRESS}" != "null" ]; 
                 then echo -en "\r\033[K${PURPLE}[*] Progress: ${YELLOW}$PROGRESS ${PURPLE}%"
             fi
             
